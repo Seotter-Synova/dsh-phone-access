@@ -1,7 +1,10 @@
 // 核实推送结果：远端提交、文件数、以及"远端内容是否等于本地"（用 git 自己比对，最可靠）。
+// 仓库位置从本脚本推导（本脚本在 <repo>/tools/ 下），不写死本机路径。
 import { execFileSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const repo = 'C:/Users/Ihuarraquax/Documents/dsh-phone-access'
+const repo = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const run = (args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 const head = run(['rev-parse', 'HEAD'])
