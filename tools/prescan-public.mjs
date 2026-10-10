@@ -17,27 +17,45 @@ for (const f of tracked) {
   treeText += `\n## ${f}\n` + fs.readFileSync(path.join(repo, f), 'utf8')
 }
 
-// git 历史全部内容（所有 revision 的所有文件）；同样剔除历史里的本脚本版本
-const historyText = run(['log', '-p', '--all']).split('\n').filter((l) => !l.includes('prescan-public.mjs')).join('\n')
+// git 历史：逐版读出**真实文件内容**（而不是读 diff 文本）。
+// 之前的做法读 `git log -p`，它会带上 diff 的表头与上下文，导致本脚本自身含有的
+// "检查用模式串"被当成命中（自我命中）；逐版读原始 blob 就没有这个问题。
+const revs = run(['rev-list', '--all']).split('\n').filter(Boolean)
+const seenBlobs = new Set()
+let historyText = ''
+for (const rev of revs) {
+  for (const f of run(['ls-tree', '-r', '--name-only', rev]).split('\n').filter(Boolean)) {
+    if (f === SELF) continue
+    let blobSha = ''
+    try { blobSha = run(['rev-parse', `${rev}:${f}`]) } catch { continue }
+    if (seenBlobs.has(blobSha)) continue
+    seenBlobs.add(blobSha)
+    try { historyText += run(['cat-file', 'blob', blobSha]) } catch { /* 二进制或缺失，跳过 */ }
+  }
+}
 
 const creds = fs.readFileSync(path.join(os.homedir(), '.dsh', '.credentials.yaml'), 'utf8')
 const realPwd = creds.match(/^\s+PHONE_ACCESS_PASSWORD:\s*(\S+)\s*$/m)[1]
 const realSecret = creds.match(/^\s+DSH_GITHUB_WEBHOOK_SECRET:\s*(\S+)\s*$/m)[1]
+
+// 额外要自查的字符串（逗号分隔）：把你的仓库名、内网域名、公司名等填进去。
+// 故意做成"配置项"而不是写死在脚本里 —— 否则脚本自身的模式串会把每次扫描都变成自我命中。
+const EXTRA = (process.env.PRESCAN_EXTRA || '').split(',').map((s) => s.trim()).filter(Boolean)
 
 const checks = [
   ['真实手机访问口令（工作树）', treeText.includes(realPwd)],
   ['真实手机访问口令（git 历史）', historyText.includes(realPwd)],
   ['真实 webhook secret（工作树）', treeText.includes(realSecret)],
   ['真实 webhook secret（git 历史）', historyText.includes(realSecret)],
-  ['用户名（当前机器账户名）', new RegExp(process.env.USERNAME || os.userInfo().username, 'i').test(treeText.replace(/new RegExp\(process\.env\.USERNAME[^\n]*/g, ''))],
-  ['内网 IP 192.168.x', /192\.168\.\d+\.\d+/.test(treeText) || /192\.168\.\d+\.\d+/.test(historyText)],
-  ['个人仓库名 Notion-db-sync', /notion-db-sync/i.test(treeText) || /notion-db-sync/i.test(historyText)],
-  ['邮箱地址', /[\w.+-]+@(?!users\.noreply\.github\.com)[\w-]+\.[a-z]{2,}/i.test(treeText.replace(/330323194\+Seotter-Synova@users\.noreply\.github\.com/g, ''))],
+  ['用户名（当前机器账户名）', new RegExp(os.userInfo().username, 'i').test(treeText)],
+  ['内网 IP 192.168.x', /192\.168\.\d+\.\d+/.test(treeText)],
+  ['邮箱地址', /[\w.+-]+@(?!users\.noreply\.github\.com)[\w-]+\.[a-z]{2,}/i.test(treeText)],
   ['中国手机号', /(?<!\d)1[3-9]\d{9}(?!\d)/.test(treeText)],
   ['身份证号', /(?<!\d)\d{17}[\dXx](?!\d)/.test(treeText)],
   ['sk-/ghp_/gho_ 令牌', /\b(sk-|ghp_|gho_|xox[baprs]-)[A-Za-z0-9_-]{10,}/.test(treeText)],
-  ['BEGIN PRIVATE KEY', /BEGIN [A-Z ]*PRIVATE KEY/.test(treeText)],
+  ['私钥块', /BEGIN [A-Z ]*PRIVATE KEY/.test(treeText)],
   ['Windows 绝对用户路径', /C:\\+Users\\+[A-Za-z0-9._-]+/.test(treeText) || /C:\/Users\/[A-Za-z0-9._-]+/.test(treeText)],
+  ...EXTRA.map((s) => [`自定义：${s}`, treeText.includes(s) || historyText.includes(s)]),
 ]
 
 let bad = 0
