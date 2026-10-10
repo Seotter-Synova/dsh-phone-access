@@ -1,0 +1,42 @@
+# 手机访问 DSH —— 推送前的排除清单
+#
+# 原则：凡是"运行时生成、含口令/域名/内网地址"的东西一律不进版本库；
+# 凡是"只存在于本机"的凭据一律不进版本库。
+
+# 生成物：访问页面里有**当前口令**、公网域名、内网 IP（脚本每次运行会重新生成）
+phone-access/access.html
+phone-access/qr-*.png
+webhook-projects/github-review/qr-*.png
+webhook-projects/github-review/sidebar-*.png
+
+# 凭据与密钥（真源在 ~/.dsh/.credentials.yaml，工作区里不该有任何副本）
+.credentials.yaml
+*.credentials.yaml
+secret.txt
+*.pem
+*.key
+
+# 备份与日志
+*.bak
+*.bak-*
+*.log
+logs/
+
+# 依赖与缓存
+node_modules/
+.pnpm-store/
+.pnpm/
+.tmp/
+.tmp-*/
+__pycache__/
+*.pyc
+
+# 本地环境
+.env
+.env.local
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

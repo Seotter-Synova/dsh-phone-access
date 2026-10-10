@@ -1,0 +1,229 @@
+/* DSH 移动端样式层（由 tools/dsh-auth-relay.mjs 在窄屏时注入到 <head> 末尾）。
+ *
+ * 背景：DSH 的 Web UI 是桌面优先的——两个 76KB 的主样式表里**一个宽度断点都没有**
+ * （只有 prefers-reduced-motion），窄屏下靠 JS 侧栏状态硬撑。这里用少量"安全覆盖"改善手机体验：
+ * 只动间距/宽度/触摸尺寸/弹窗铺满，不动布局结构与 JS 管理的 grid 轨道（避免与 JS 打架）。
+ * 类名是构建哈希（BynINW_frame 等），DSH 升级后可能失效——失效只会让覆盖消失，不会损坏页面。
+ */
+
+@media (max-width: 820px) {
+  /* ---- 1) 触摸友好：小按钮至少 40px ---- */
+  button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    min-height: 40px;
+  }
+  /* 图标类小按钮保持方形，别被拉长 */
+  button[aria-label] {
+    min-width: 40px;
+  }
+
+  /* ---- 2) 正文与代码块：手机上收紧留白、加大字号可读性 ---- */
+  body {
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+  pre, code, .md-code-block {
+    font-size: 13px !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+  table, .md-table-wide {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  img, video, canvas {
+    max-width: 100% !important;
+    height: auto;
+  }
+
+  /* ---- 3) 会话列表 / 项目行：行高适合手指点 ---- */
+  [class*="sessionRow"],
+  [class*="projectRow"] {
+    min-height: 44px;
+  }
+
+  /* ---- 4) 悬浮窗/弹层：别溢出屏幕 ---- */
+  [role="dialog"],
+  [role="menu"],
+  [role="listbox"],
+  [class*="popover"],
+  [class*="Popover"],
+  [class*="dropdown"],
+  [class*="Dropdown"] {
+    max-width: calc(100vw - 16px) !important;
+    overflow: auto !important;
+  }
+
+  /* 4b) 弹层高度只按"可视高度"算，**不要**掺键盘高度变量。
+     教训：之前写成 calc(var(--relay-keyboard-inset) + 60dvh)，inset 为 0 时只剩 60dvh，
+     比原来更矮 → 阿特反馈"选择框又变得很小"。键盘现在由补丁的 readOnly 方案直接压住。 */
+  [role="menu"],
+  [role="listbox"],
+  [class*="popover"],
+  [class*="Popover"],
+  [class*="dropdown"],
+  [class*="Dropdown"],
+  [class*="sheet"],
+  [class*="Sheet"] {
+    max-height: calc(100vh - 24px) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* 4d) 斜杠指令 / 补全菜单（实测就是输入框上方那块"计划 / 润色"）：
+     手机上原尺寸太小、行高不足以用手指点。放大字号与行高，并保证可滚动、可点中。 */
+  [role="listbox"] [role="option"],
+  [role="menu"] [role="menuitem"],
+  [class*="commandMenu"] li,
+  [class*="CommandMenu"] li,
+  [class*="mentionMenu"] li,
+  [class*="MentionMenu"] li,
+  [class*="completion"] [role="option"] {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    font-size: 15px !important;
+    line-height: 1.4 !important;
+  }
+  /* 菜单本体：字号别太小，宽度用满可点区域 */
+  [role="listbox"],
+  [role="menu"] {
+    font-size: 15px !important;
+    min-width: min(320px, calc(100vw - 24px)) !important;
+  }
+
+  /* 4c) 接管输入区定位（2026-10-10 阿特拍定）：
+     与 iOS 的自动滚动抢位置抢不过（加图片后输入区变高就会输），所以干脆固定贴底。
+     补丁负责测量：--relay-vv-top/--relay-vv-height = 视觉视口（键盘之上）的位置与高度，
+     --relay-composer-h = 输入区自身高度（给占位父元素保持高度，避免页面塌一块）。 */
+  [data-relay-composer="1"] {
+    position: fixed !important;
+    /* 左边要让开左侧图标栏（实测 56px），否则输入区左侧被图标栏压住（阿特实测）。 */
+    left: var(--relay-rail-width, 56px) !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    /* 层级要**高于侧栏悬浮层（60）**，否则侧栏展开时输入区会被挡掉一半（阿特实测）。 */
+    z-index: 70 !important;
+    background: var(--dsw-alias-bg-base, #fff);
+    box-shadow: 0 -6px 20px #00000014;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  /* 键盘弹出时贴到可视区底部；没有测量值（vw 未知）时回退到 100vh */
+  [data-relay-composer="1"] {
+    top: calc(var(--relay-vv-top, 0px) + var(--relay-vv-height, 100vh) - var(--relay-composer-h, 0px)) !important;
+  }
+
+  /* 4d) 底部遮挡补偿：给滚动容器留出"键盘 + 底部网址栏"的等高下内边距，
+     配合上面的固定定位，历史消息不会被压在输入区/键盘下面。 */
+  [class*="scroller"],
+  [class*="Scroller"],
+  [class*="messageList"],
+  [class*="MessageList"],
+  main {
+    scroll-padding-bottom: calc(var(--relay-composer-h, 0px) + 24px);
+    padding-bottom: calc(var(--relay-composer-h, 0px) + 24px) !important;
+  }
+
+  /* ---- 5) 输入区：贴底铺满，减少两侧留白 ---- */
+  [class*="_compose"],
+  [class*="Composer"],
+  [class*="composer"] {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  /* ---- 6) 自己插的装饰（头像/挂件）在小屏上退让，别挤内容 ---- */
+  [data-chat-flow-key]::before {
+    width: 18px !important;
+    height: 18px !important;
+    background-size: 18px 18px !important;
+  }
+  /* 右下角浮动的桌面挂件（真实类名 dshwv-root，fixed 122x122、z-index 9999）：
+     手机上会盖住内容，而且它的尺寸按桌面算、底部容易被截断。窄屏直接收起；
+     想要它回来，删掉下面这三条即可。 */
+  .dshwv-root,
+  [class^="dshwv-"] {
+    display: none !important;
+  }
+}
+
+/* 更窄（手机竖屏）：进一步压缩 */
+@media (max-width: 480px) {
+  button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    min-height: 42px;
+  }
+  pre, code, .md-code-block {
+    font-size: 12.5px !important;
+  }
+  /* 侧栏本身就很窄了，别再加内边距 */
+  [class*="sidebarCol"] {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+/* ---- 7) 侧栏悬浮化（手机上的核心问题，2026-10-10 阿特反馈"点开左侧右边被挤得很难受"）----
+ *
+ * 实测：侧栏展开时 DSH 把这一行**内联样式**写在 frame 上
+ *   grid-template-columns: 280px minmax(0px,1fr) minmax(0px,0px)
+ * 在 390px 手机上 → 侧栏 280px + 内容只剩 110px（截图里"对话"被压成竖排）。
+ * 因为是内联样式，必须 !important 才能覆盖；用 :has() 保证**只在侧栏展开时**生效，
+ * 收起时（data-sidebar-collapsed="true"）完全不动，保持 DSH 原生行为。
+ *
+ * 做法：把侧栏列宽度压成 0（内容拿回整屏），侧栏本体改为 fixed 悬浮层 + 半透明遮罩。
+ */
+@media (max-width: 820px) {
+  /* frame 需要成为遮罩的定位祖先 */
+  [class*="frame"]:has([class*="sidebarCol"]) {
+    position: relative;
+  }
+
+  /* 侧栏展开（没有 data-sidebar-collapsed）：内容列占满整屏 */
+  [class*="frame"]:not([data-sidebar-collapsed]):has([class*="sidebarCol"]) {
+    grid-template-columns: 0 minmax(0px, 1fr) minmax(0px, 0px) !important;
+  }
+
+  /* 侧栏本体：脱离网格 → 悬浮层。
+     注意：这个列容器在侧栏展开时是**满宽**的（实测命中测试会落到它身上），
+     所以先让它对指针透明，只让里面的面板接收点击；否则它会挡住整个页面的交互。 */
+  [class*="frame"]:not([data-sidebar-collapsed]) > [class*="sidebarCol"] {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    z-index: 60 !important;
+    width: min(280px, 84vw) !important;
+    max-width: 84vw !important;
+    pointer-events: none !important;
+    box-shadow: 0 0 32px #00000038;
+    border-top-right-radius: 14px;
+    border-bottom-right-radius: 14px;
+    padding-left: env(safe-area-inset-left, 0) !important;
+    padding-top: env(safe-area-inset-top, 0) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+  }
+
+  /* 面板本身恢复可点击 */
+  [class*="frame"]:not([data-sidebar-collapsed]) > [class*="sidebarCol"] > * {
+    pointer-events: auto !important;
+  }
+
+  /* 遮罩：挂在**侧栏自己**身上，而不是 frame 上（2026-10-10 修正）。
+     曾经挂在 frame 的 ::after 上 → 侧栏收起走的是原生 CSS 过渡、frame 那个伪元素不跟着消失，
+     于是手机上出现"右侧一直被一层灰罩着"的残留。挂在侧栏上就必然同生共死：
+     侧栏还在（fixed 铺满视口）遮罩就在，侧栏一没遮罩立刻没。
+     pointer-events 保持 none → 点空白落到下面 DSH 自己的 overlay 层，照旧能点空白收起。 */
+  [class*="frame"]:not([data-sidebar-collapsed]) > [class*="sidebarCol"]::before {
+    content: "" !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: #00000038 !important;
+    z-index: -1 !important;
+    pointer-events: none !important;
+  }
+}
