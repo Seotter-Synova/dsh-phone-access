@@ -1,0 +1,11 @@
+添加 .gitattributes：固定行尾与编码约定
+
+不依赖各机器的 core.autocrlf —— 本项目的启动脚本给 PowerShell 5.1 用，
+而它判定 UTF-8 靠 BOM；行尾与 BOM 混乱会导致脚本静默退出且不留日志这类难查问题。
+
+- *.ps1 / *.cmd / *.bat -> CRLF（Windows 专用脚本）
+- *.mjs / *.js / *.json / *.css / *.md / *.yml -> LF（跨平台源码与文档）
+- 二进制文件不做任何转换
+- 生成物（access.html / qr png）标记为 linguist-generated
+
+同时把两个 .cmd 转成 CRLF，使磁盘现状与约定一致（不只是纸面声明）。

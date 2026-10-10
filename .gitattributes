@@ -1,0 +1,44 @@
+# 行尾与编码约定
+#
+# 为什么需要这个文件：Windows 上 git 默认 core.autocrlf=true，会把文本文件在 checkout 时
+# 转成 CRLF、提交时转回 LF。本项目的启动脚本是 Windows PowerShell 5.1 用的，而
+# **PowerShell 5.1 判定 .ps1 是否为 UTF-8 靠的是 BOM**，行尾混乱叠加 BOM 丢失会导致
+# "脚本解析失败、静默退出、不留日志"这类很难查的问题。所以这里把规则写死，不依赖各机器的 git 配置。
+#
+# 归一到 CRLF：Windows 专用脚本（.cmd 由 cmd.exe 执行；.ps1 由 PowerShell 5.1 执行）
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# 归一到 LF：跨平台源码与文档（Node 脚本、样式、Markdown、YAML）
+*.mjs  text eol=lf
+*.js   text eol=lf
+*.cjs  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# 二进制：不要做任何行尾或编码转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.zip  binary
+*.gz   binary
+*.tgz  binary
+*.exe  binary
+*.dll  binary
+*.pdf  binary
+
+# 让 git 在 diff/merge 时按语言处理（可选，但能让冲突更好读）
+*.mjs  diff=javascript
+*.js   diff=javascript
+*.json diff=json
+
+# 语言统计时把生成物排除
+phone-access/access.html linguist-generated=true
+phone-access/qr-*.png    linguist-generated=true
